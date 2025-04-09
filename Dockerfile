@@ -1,8 +1,8 @@
-FROM grafana/grafana-oss:10.2.3-alpine
+FROM grafana/grafana-oss:main-ubuntu
 
 ENV GF_INSTALL_PLUGINS=grafana-cloudwatch-datasource
 ENV GF_METRICS_ENABLED=true
-# Removed the potentially sensitive ENV to pass at runtime instead
+# Sensitive ENV values should be passed at runtime via environment variables
 
 COPY provisioning/datasources /etc/grafana/provisioning/datasources
 COPY provisioning/dashboards /etc/grafana/provisioning/dashboards
