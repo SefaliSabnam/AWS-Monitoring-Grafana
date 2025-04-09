@@ -6,7 +6,6 @@ pipeline {
     INSTANCE_NAME = "DOCKER WITH GRAFANA"
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
-    SSH_KEY = 'ec2-ssh-key'  // Jenkins SSH credentials ID
   }
 
   options {
@@ -42,13 +41,13 @@ pipeline {
         branch 'main'
       }
       steps {
-        sshagent(credentials: [SSH_KEY]) {
+        withCredentials([file(credentialsId: 'ec2-ssh-key', variable: 'PEM_FILE')]) {
           script {
             def ec2_ip = bat(
               script: """
                 aws ec2 describe-instances ^
-                  --region %REGION% ^
-                  --filters "Name=tag:Name,Values=%INSTANCE_NAME%" "Name=instance-state-name,Values=running" ^
+                  --region ${env.REGION} ^
+                  --filters "Name=tag:Name,Values=${env.INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
                   --query "Reservations[*].Instances[*].PublicIpAddress" ^
                   --output text
               """,
@@ -59,11 +58,13 @@ pipeline {
               error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
             }
 
-            // Deploying Grafana on EC2 via SSH
-            bat """
-              echo y | plink -ssh ec2-user@${ec2_ip} -i path\\to\\your\\private_key.ppk ^
-                "docker pull %IMAGE_NAME% && docker stop grafana || exit 0 && docker rm grafana || exit 0 && docker run -d --name grafana -p 3000:3000 %IMAGE_NAME%"
+            writeFile file: 'deploy.sh', text: """
+              chmod 400 "$PEM_FILE"
+              ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@${ec2_ip} \\
+                'docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}'
             """
+
+            bat 'bash deploy.sh'
           }
         }
       }
@@ -72,10 +73,10 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. You can access it via the EC2 public IP.'
+      echo 'Grafana deployed successfully. You can access it via the EC2 public IP.'
     }
     failure {
-      echo ' Deployment failed. Check Jenkins logs for details.'
+      echo 'Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
