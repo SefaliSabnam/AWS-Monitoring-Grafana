@@ -50,11 +50,14 @@ pipeline {
             script {
               def ec2_ip = bat(
                 script: """
+                  @echo off
                   for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
                     --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
                     --query "Reservations[*].Instances[*].PublicIpAddress" ^
-                    --output text`) do set EC2_IP=%%i
-                  echo !EC2_IP!
+                    --output text`) do (
+                      set EC2_IP=%%i
+                  )
+                  echo %EC2_IP%
                 """,
                 returnStdout: true
               ).trim()
@@ -66,9 +69,10 @@ pipeline {
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
               bat """
-                chmod 400 %KEY_FILE%
-                ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@${ec2_ip} ^
-                  "docker pull %IMAGE_NAME% && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 %IMAGE_NAME%"
+                set EC2_IP=${ec2_ip}
+                echo Deploying to EC2: %EC2_IP%
+                ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@%EC2_IP% ^
+                  "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
               """
             }
           }
@@ -82,7 +86,7 @@ pipeline {
       echo 'Grafana deployed successfully. Access it via the EC2 public IP.'
     }
     failure {
-      echo 'Deployment failed. Check Jenkins logs for details.'
+      echo ' Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
