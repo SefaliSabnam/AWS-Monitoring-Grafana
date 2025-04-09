@@ -51,9 +51,9 @@ pipeline {
               def ec2_ip = bat(
                 script: """
                   @echo off
-                  for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^ 
-                    --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^ 
-                    --query "Reservations[*].Instances[*].PublicIpAddress" ^ 
+                  for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
+                    --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
+                    --query "Reservations[*].Instances[*].PublicIpAddress" ^
                     --output text`) do (
                       set EC2_IP=%%i
                   )
@@ -68,12 +68,12 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              //  Add PowerShell permission fix here
+              //  Updated PowerShell permission fix
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
 
-                powershell -Command "icacls %KEY_FILE% /inheritance:r; icacls %KEY_FILE% /grant:r \\"%USERNAME%:R\\""
+                powershell -Command "icacls %KEY_FILE% /inheritance:r; icacls %KEY_FILE% /grant:r \\"Users:R\\""
 
                 ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@%EC2_IP% ^
                   "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
