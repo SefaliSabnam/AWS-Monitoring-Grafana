@@ -15,6 +15,7 @@ pipeline {
   }
 
   stages {
+
     stage('Checkout') {
       steps {
         checkout scm
@@ -29,7 +30,11 @@ pipeline {
 
     stage('Push to DockerHub') {
       steps {
-        withCredentials([usernamePassword(credentialsId: "${DOCKER_HUB_CREDENTIALS}", usernameVariable: 'DOCKER_USER', passwordVariable: 'DOCKER_PASS')]) {
+        withCredentials([usernamePassword(
+          credentialsId: "${DOCKER_HUB_CREDENTIALS}",
+          usernameVariable: 'DOCKER_USER',
+          passwordVariable: 'DOCKER_PASS'
+        )]) {
           bat """
             echo %DOCKER_PASS% | docker login -u %DOCKER_USER% --password-stdin
             docker push %IMAGE_NAME%
@@ -44,7 +49,11 @@ pipeline {
       }
       steps {
         withCredentials([
-          sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'KEY_FILE', usernameVariable: 'EC2_USER')
+          sshUserPrivateKey(
+            credentialsId: "${EC2_SSH_KEY}",
+            keyFileVariable: 'KEY_FILE',
+            usernameVariable: 'EC2_USER'
+          )
         ]) {
           withAWS(credentials: "${AWS_CREDENTIALS}", region: "${REGION}") {
             script {
@@ -68,15 +77,16 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix permissions for the private key using PowerShell icacls
-              bat """
-                powershell -Command "
-                  \$keyPath = '%KEY_FILE%'
-                  icacls \$keyPath /inheritance:r
-                  icacls \$keyPath /remove:g 'BUILTIN\\Users'
-                  icacls \$keyPath /grant:r 'rony\\asus:(R)'
-                "
+              // Fix SSH key permissions using PowerShell
+              powershell """
+                \$key = '${KEY_FILE}'
+                icacls \$key /inheritance:r
+                icacls \$key /remove:g "BUILTIN\\Users"
+                icacls \$key /grant:r "rony\\asus:(R)"
+              """
 
+              // SSH into EC2 and deploy the container
+              bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
 
@@ -92,10 +102,10 @@ pipeline {
 
   post {
     success {
-      echo 'Grafana deployed successfully. Access it via the EC2 public IP.'
+      echo ' Grafana deployed successfully. Access it via the EC2 public IP.'
     }
     failure {
-      echo 'Deployment failed. Check Jenkins logs for details.'
+      echo ' Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
