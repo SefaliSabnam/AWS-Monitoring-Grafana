@@ -6,7 +6,8 @@ pipeline {
     INSTANCE_NAME = "DOCKER WITH GRAFANA"
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
-    EC2_SSH_KEY = 'ec2-ssh-key'  // SSH Username with Private Key
+    EC2_SSH_KEY = 'ec2-ssh-key'                 // Type: SSH Username with Private Key
+    AWS_CREDENTIALS = 'AWS-DOCKER-CREDENTIALS'  // Type: Username & Password (Access Key ID / Secret)
   }
 
   options {
@@ -42,10 +43,15 @@ pipeline {
         branch 'main'
       }
       steps {
-        withCredentials([sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'KEY_FILE', usernameVariable: 'EC2_USER')]) {
+        withCredentials([
+          sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'KEY_FILE', usernameVariable: 'EC2_USER'),
+          usernamePassword(credentialsId: "${AWS_CREDENTIALS}", usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
+        ]) {
           script {
             def ec2_ip = bat(
               script: """
+                set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
+                set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
                 aws ec2 describe-instances ^
                   --region ${env.REGION} ^
                   --filters "Name=tag:Name,Values=${env.INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
@@ -59,7 +65,6 @@ pipeline {
               error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
             }
 
-            // Run remote commands using Git Bash or WSL
             bat """
               bash -c "chmod 400 $KEY_FILE && ssh -o StrictHostKeyChecking=no -i $KEY_FILE $EC2_USER@${ec2_ip} \\
               'docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}'"
