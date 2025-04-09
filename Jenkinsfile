@@ -7,7 +7,7 @@ pipeline {
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
     EC2_SSH_KEY = 'ec2-ssh-key'                 // Jenkins Credential ID: SSH Private Key
-    AWS_CREDENTIALS = 'AWS-DOCKER-CREDENTIALS'  // Jenkins Credential ID: AWS Access & Secret
+    AWS_CREDENTIALS = 'AWS-DOCKER-CREDENTIALS'  // Jenkins Credential ID: AWS Access & Secret (AWS credentials type)
   }
 
   options {
@@ -44,37 +44,33 @@ pipeline {
       }
       steps {
         withCredentials([
-          sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'KEY_FILE', usernameVariable: 'EC2_USER'),
-          usernamePassword(credentialsId: "${AWS_CREDENTIALS}", usernameVariable: 'AWS_ACCESS_KEY_ID', passwordVariable: 'AWS_SECRET_ACCESS_KEY')
+          sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'KEY_FILE', usernameVariable: 'EC2_USER')
         ]) {
-          script {
-            def ec2_ip = bat(
-              script: """
-                setlocal
-                set AWS_ACCESS_KEY_ID=%AWS_ACCESS_KEY_ID%
-                set AWS_SECRET_ACCESS_KEY=%AWS_SECRET_ACCESS_KEY%
-                for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
-                  --region %REGION% ^
-                  --filters "Name=tag:Name,Values=%INSTANCE_NAME%" "Name=instance-state-name,Values=running" ^
-                  --query "Reservations[*].Instances[*].PublicIpAddress" ^
-                  --output text`) do set EC2_IP=%%i
-                echo !EC2_IP!
-                endlocal
-              """,
-              returnStdout: true
-            ).trim()
+          withAWS(credentials: "${AWS_CREDENTIALS}", region: "${REGION}") {
+            script {
+              def ec2_ip = bat(
+                script: """
+                  for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
+                    --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
+                    --query "Reservations[*].Instances[*].PublicIpAddress" ^
+                    --output text`) do set EC2_IP=%%i
+                  echo !EC2_IP!
+                """,
+                returnStdout: true
+              ).trim()
 
-            if (!ec2_ip || ec2_ip == 'None') {
-              error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
+              if (!ec2_ip || ec2_ip == 'None') {
+                error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
+              }
+
+              echo "EC2 Instance Public IP: ${ec2_ip}"
+
+              bat """
+                chmod 400 %KEY_FILE%
+                ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@${ec2_ip} ^
+                  "docker pull %IMAGE_NAME% && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 %IMAGE_NAME%"
+              """
             }
-
-            echo "EC2 Instance Public IP: ${ec2_ip}"
-
-            bat """
-              chmod 400 %KEY_FILE%
-              ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@${ec2_ip} ^
-                "docker pull %IMAGE_NAME% && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 %IMAGE_NAME%"
-            """
           }
         }
       }
@@ -83,10 +79,10 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. Access it via the EC2 public IP.'
+      echo 'Grafana deployed successfully. Access it via the EC2 public IP.'
     }
     failure {
-      echo ' Deployment failed. Check Jenkins logs for details.'
+      echo 'Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
