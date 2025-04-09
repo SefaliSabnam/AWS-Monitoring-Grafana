@@ -1,4 +1,4 @@
-FROM grafana/grafana-oss:10.2.3-alpine
+FROM grafana/grafana-oss:10.2.3
 
 # Install CloudWatch plugin
 ENV GF_INSTALL_PLUGINS=grafana-cloudwatch-datasource
