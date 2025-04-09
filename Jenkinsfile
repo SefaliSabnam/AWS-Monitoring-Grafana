@@ -6,7 +6,7 @@ pipeline {
     INSTANCE_NAME = "DOCKER WITH GRAFANA"
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
-    EC2_SSH_KEY = 'ec2-ssh-key'  //  ID of the SSH private key stored in Jenkins
+    EC2_SSH_KEY = 'ec2-ssh-key'  // SSH Username with Private Key
   }
 
   options {
@@ -42,7 +42,7 @@ pipeline {
         branch 'main'
       }
       steps {
-        sshagent(credentials: [env.EC2_SSH_KEY]) {
+        withCredentials([sshUserPrivateKey(credentialsId: "${EC2_SSH_KEY}", keyFileVariable: 'KEY_FILE', usernameVariable: 'EC2_USER')]) {
           script {
             def ec2_ip = bat(
               script: """
@@ -59,12 +59,11 @@ pipeline {
               error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
             }
 
-            writeFile file: 'deploy.sh', text: """
-              ssh -o StrictHostKeyChecking=no ec2-user@${ec2_ip} \\
-                "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
+            // Run remote commands using Git Bash or WSL
+            bat """
+              bash -c "chmod 400 $KEY_FILE && ssh -o StrictHostKeyChecking=no -i $KEY_FILE $EC2_USER@${ec2_ip} \\
+              'docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}'"
             """
-
-            bat 'bash deploy.sh'
           }
         }
       }
