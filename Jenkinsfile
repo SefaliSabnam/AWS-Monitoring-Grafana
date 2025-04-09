@@ -6,6 +6,7 @@ pipeline {
     INSTANCE_NAME = "DOCKER WITH GRAFANA"
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
+    EC2_SSH_KEY = 'ec2-ssh-key'  //  ID of the SSH private key stored in Jenkins
   }
 
   options {
@@ -41,7 +42,7 @@ pipeline {
         branch 'main'
       }
       steps {
-        withCredentials([file(credentialsId: 'ec2-ssh-key', variable: 'PEM_FILE')]) {
+        sshagent(credentials: [env.EC2_SSH_KEY]) {
           script {
             def ec2_ip = bat(
               script: """
@@ -59,9 +60,8 @@ pipeline {
             }
 
             writeFile file: 'deploy.sh', text: """
-              chmod 400 "$PEM_FILE"
-              ssh -o StrictHostKeyChecking=no -i "$PEM_FILE" ec2-user@${ec2_ip} \\
-                'docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}'
+              ssh -o StrictHostKeyChecking=no ec2-user@${ec2_ip} \\
+                "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
             """
 
             bat 'bash deploy.sh'
@@ -73,10 +73,10 @@ pipeline {
 
   post {
     success {
-      echo 'Grafana deployed successfully. You can access it via the EC2 public IP.'
+      echo ' Grafana deployed successfully. You can access it via the EC2 public IP.'
     }
     failure {
-      echo 'Deployment failed. Check Jenkins logs for details.'
+      echo ' Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
