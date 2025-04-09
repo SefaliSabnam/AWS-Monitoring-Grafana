@@ -68,8 +68,15 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // No icacls — Jenkins handles permissions in secretFiles
+              // Fix permissions for the private key using PowerShell icacls
               bat """
+                powershell -Command "
+                  \$keyPath = '%KEY_FILE%'
+                  icacls \$keyPath /inheritance:r
+                  icacls \$keyPath /remove:g 'BUILTIN\\Users'
+                  icacls \$keyPath /grant:r 'rony\\asus:(R)'
+                "
+
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
 
@@ -85,10 +92,10 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. Access it via the EC2 public IP.'
+      echo 'Grafana deployed successfully. Access it via the EC2 public IP.'
     }
     failure {
-      echo ' Deployment failed. Check Jenkins logs for details.'
+      echo 'Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
