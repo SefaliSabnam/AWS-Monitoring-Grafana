@@ -6,7 +6,7 @@ pipeline {
     INSTANCE_NAME = "DOCKER WITH GRAFANA"
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
-    EC2_SSH_KEY = 'ec2-ssh-key'
+    EC2_SSH_KEY = 'ec2-ssh-key' // Jenkins SSH credentials ID
     AWS_CREDENTIALS = 'AWS-DOCKER-CREDENTIALS'
   }
 
@@ -48,49 +48,35 @@ pipeline {
         branch 'main'
       }
       steps {
-        withCredentials([
-          sshUserPrivateKey(
-            credentialsId: "${EC2_SSH_KEY}",
-            keyFileVariable: 'KEY_FILE',
-            usernameVariable: 'EC2_USER'
-          )
-        ]) {
-          withAWS(credentials: "${AWS_CREDENTIALS}", region: "${REGION}") {
-            script {
-              def ec2_ip = bat(
-                script: """
-                  @echo off
-                  for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
-                    --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
-                    --query "Reservations[*].Instances[*].PublicIpAddress" ^
-                    --output text`) do (
-                      set EC2_IP=%%i
-                  )
-                  echo %EC2_IP%
-                """,
-                returnStdout: true
-              ).trim()
+        withAWS(credentials: "${AWS_CREDENTIALS}", region: "${REGION}") {
+          script {
+            def ec2_ip = bat(
+              script: """
+                @echo off
+                for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
+                  --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
+                  --query "Reservations[*].Instances[*].PublicIpAddress" ^
+                  --output text`) do (
+                    set EC2_IP=%%i
+                )
+                echo %EC2_IP%
+              """,
+              returnStdout: true
+            ).trim()
 
-              if (!ec2_ip || ec2_ip == 'None') {
-                error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
-              }
+            if (!ec2_ip || ec2_ip == 'None') {
+              error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
+            }
 
-              echo "EC2 Instance Public IP: ${ec2_ip}"
+            echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix SSH key permissions using PowerShell
-              powershell """
-                \$key = '${KEY_FILE}'
-                icacls \$key /inheritance:r
-                icacls \$key /remove:g "BUILTIN\\Users"
-                icacls \$key /grant:r "rony\\asus:(R)"
-              """
-
-              // SSH into EC2 and deploy the container
+            // Use ssh-agent for safe key injection and deploy
+            sshagent (credentials: ["${EC2_SSH_KEY}"]) {
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
 
-                ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@%EC2_IP% ^
+                ssh -o StrictHostKeyChecking=no ec2-user@%EC2_IP% ^
                   "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
               """
             }
