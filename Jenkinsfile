@@ -38,37 +38,38 @@ pipeline {
     }
 
     stage('Deploy to EC2') {
-      when {
-        branch 'main'
-      }
-      steps {
-        sshagent(credentials: [SSH_KEY]) {
-          script {
-            def ec2_ip = bat(
-              script: """
-                aws ec2 describe-instances ^
-                  --region %REGION% ^
-                  --filters "Name=tag:Name,Values=%INSTANCE_NAME%" "Name=instance-state-name,Values=running" ^
-                  --query "Reservations[*].Instances[*].PublicIpAddress" ^
-                  --output text
-              """,
-              returnStdout: true
-            ).trim()
+  when {
+    branch 'main'
+  }
+  steps {
+    withCredentials([file(credentialsId: 'ec2-pem-key', variable: 'PEM_FILE')]) {
+      script {
+        def ec2_ip = sh(
+          script: """
+            aws ec2 describe-instances \
+              --region $REGION \
+              --filters "Name=tag:Name,Values=$INSTANCE_NAME" "Name=instance-state-name,Values=running" \
+              --query "Reservations[*].Instances[*].PublicIpAddress" \
+              --output text
+          """,
+          returnStdout: true
+        ).trim()
 
-            if (!ec2_ip) {
-              error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
-            }
-
-            // Deploying Grafana on EC2 via SSH
-            bat """
-              echo y | plink -ssh ec2-user@${ec2_ip} -i path\\to\\your\\private_key.ppk ^
-                "docker pull %IMAGE_NAME% && docker stop grafana || exit 0 && docker rm grafana || exit 0 && docker run -d --name grafana -p 3000:3000 %IMAGE_NAME%"
-            """
-          }
+        if (!ec2_ip) {
+          error("No running EC2 instance found with name '${INSTANCE_NAME}' in region '${REGION}'")
         }
+
+        // Securely deploy Docker container on EC2 using PEM
+        sh """
+          chmod 400 $PEM_FILE
+          ssh -o StrictHostKeyChecking=no -i $PEM_FILE ec2-user@${ec2_ip} \\
+            'docker pull $IMAGE_NAME && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 $IMAGE_NAME'
+        """
       }
     }
   }
+}
+
 
   post {
     success {
