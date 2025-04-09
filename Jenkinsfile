@@ -3,8 +3,8 @@ pipeline {
 
   environment {
     IMAGE_NAME = "sefali26/grafana-ec2"
-    EC2_HOST = "ec2-user@<EC2_PUBLIC_IP>" // EC2 IP not revealed
-    DOCKER_HUB_CREDENTIALS = 'dockerhub-credentials'
+    EC2_HOST_CRED = credentials('ec2-host') // 🔐 Store EC2 host (e.g., ec2-user@x.x.x.x) as secret text in Jenkins
+    DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
     SSH_KEY = 'ec2-ssh-key'
   }
 
@@ -43,7 +43,7 @@ pipeline {
       steps {
         sshagent([SSH_KEY]) {
           sh """
-            ssh -o StrictHostKeyChecking=no $EC2_HOST << EOF
+            ssh -o StrictHostKeyChecking=no $EC2_HOST_CRED << EOF
               docker pull $IMAGE_NAME
               docker stop grafana || true
               docker rm grafana || true
