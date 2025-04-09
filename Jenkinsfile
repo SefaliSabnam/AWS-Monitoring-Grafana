@@ -7,7 +7,7 @@ pipeline {
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
     EC2_SSH_KEY = 'ec2-ssh-key'                 // Jenkins Credential ID: SSH Private Key
-    AWS_CREDENTIALS = 'AWS-DOCKER-CREDENTIALS'  // Jenkins Credential ID: AWS Access & Secret (AWS credentials type)
+    AWS_CREDENTIALS = 'AWS-DOCKER-CREDENTIALS'  // Jenkins Credential ID: AWS Access & Secret
   }
 
   options {
@@ -68,12 +68,12 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              //  Updated PowerShell permission fix
+              // ✅ Fixed permission handling + SSH deployment
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
 
-                powershell -Command "icacls %KEY_FILE% /inheritance:r; icacls %KEY_FILE% /grant:r \\"Users:R\\""
+                powershell -Command "icacls %KEY_FILE% /inheritance:r; icacls %KEY_FILE% /grant:r \\"%USERNAME%:R\\""
 
                 ssh -o StrictHostKeyChecking=no -i %KEY_FILE% %EC2_USER%@%EC2_IP% ^
                   "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
@@ -87,7 +87,7 @@ pipeline {
 
   post {
     success {
-      echo 'Grafana deployed successfully. Access it via the EC2 public IP.'
+      echo ' Grafana deployed successfully. Access it via the EC2 public IP.'
     }
     failure {
       echo ' Deployment failed. Check Jenkins logs for details.'
