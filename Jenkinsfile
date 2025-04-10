@@ -1,4 +1,4 @@
-pipeline {  
+pipeline {   
   agent any
 
   environment {
@@ -59,7 +59,7 @@ pipeline {
           sshUserPrivateKey(
             credentialsId: "${EC2_SSH_KEY}",
             keyFileVariable: 'KEY_FILE',
-            usernameVariable: 'EC2_USER'
+            usernameVariable: 'USER'
           )
         ]) {
           withAWS(credentials: "${AWS_CREDENTIALS}", region: "${REGION}") {
@@ -83,17 +83,17 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix key permissions safely
+              // Set permissions for the private key
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
                 icacls "%KEY_FILE%" /grant:r "Users:(R)"
               """
 
-              // SSH into EC2 and deploy Docker container
+              // Equivalent to: ssh -o StrictHostKeyChecking=no -i "$KEY_FILE" ec2-user@${EC2_IP} ...
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
-                ssh -o StrictHostKeyChecking=no -i "%KEY_FILE%" %EC2_USER%@%EC2_IP% ^
+                ssh -o StrictHostKeyChecking=no -i "%KEY_FILE%" %USER%@%EC2_IP% ^
                   "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
               """
             }
@@ -105,10 +105,10 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. Access it via the EC2 public IP.'
+      echo 'Grafana deployed successfully. Access it via the EC2 public IP.'
     }
     failure {
-      echo ' Deployment failed. Check Jenkins logs for details.'
+      echo 'Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
