@@ -83,15 +83,14 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix permissions for private key securely on Windows
+              // Fix key file permission for Windows Jenkins agent
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
-                icacls "%KEY_FILE%" /remove:g "Users"
                 icacls "%KEY_FILE%" /grant:r "SYSTEM:F"
                 icacls "%KEY_FILE%" /grant:r "Administrators:F"
               """
 
-              // Deploy container on EC2
+              // SSH into EC2 and deploy Docker container
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
@@ -107,10 +106,10 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. Access it via the EC2 public IP.'
+      echo ' Grafana deployed successfully. Access it via the EC2 public IP on port 3000.'
     }
     failure {
-      echo ' Deployment failed. Check Jenkins logs for details.'
+      echo 'Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
