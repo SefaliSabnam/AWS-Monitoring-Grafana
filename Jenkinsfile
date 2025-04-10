@@ -1,4 +1,4 @@
-pipeline { 
+pipeline {  
   agent any
 
   environment {
@@ -60,13 +60,12 @@ pipeline {
               def ec2_ip = bat(
                 script: """
                   @echo off
-                  for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^ 
-                    --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^ 
-                    --query "Reservations[*].Instances[*].PublicIpAddress" ^ 
+                  for /f "tokens=* usebackq" %%i in (`aws ec2 describe-instances ^
+                    --filters "Name=tag:Name,Values=${INSTANCE_NAME}" "Name=instance-state-name,Values=running" ^
+                    --query "Reservations[*].Instances[*].PublicIpAddress" ^
                     --output text`) do (
-                      set EC2_IP=%%i
+                      echo %%i
                   )
-                  echo %EC2_IP%
                 """,
                 returnStdout: true
               ).trim()
@@ -77,10 +76,10 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix key permissions (equivalent to chmod 400)
+              // Fix key permissions (removed incorrect username from icacls)
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
-                icacls "%KEY_FILE%" /grant:r "%USERNAME%:R"
+                icacls "%KEY_FILE%" /grant:r "%USERNAME%:(R)"
               """
 
               // SSH into EC2 and deploy Docker container
