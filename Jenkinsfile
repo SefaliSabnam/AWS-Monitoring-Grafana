@@ -83,13 +83,14 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Set permissions for the private key
+              // Fix key file permission for Windows Jenkins agent
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
-                icacls "%KEY_FILE%" /grant:r "Users:(R)"
+                icacls "%KEY_FILE%" /grant:r "%USERNAME%:F"
+                icacls "%KEY_FILE%" /grant:r "Users:F"
               """
 
-              // Equivalent to: ssh -o StrictHostKeyChecking=no -i "$KEY_FILE" ec2-user@${EC2_IP} ...
+              // SSH into EC2 and deploy Docker container
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
