@@ -12,7 +12,6 @@ pipeline {
 
   options {
     skipStagesAfterUnstable()
-    // Clean workspace before starting the pipeline
     skipDefaultCheckout()
   }
 
@@ -84,10 +83,10 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix key permissions
+              // Fix key permissions safely
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
-                icacls "%KEY_FILE%" /grant:r "%USERNAME%:(R)"
+                icacls "%KEY_FILE%" /grant:r "Users:(R)"
               """
 
               // SSH into EC2 and deploy Docker container
