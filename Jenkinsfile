@@ -86,7 +86,7 @@ pipeline {
               // Fix key file permission for Windows Jenkins agent
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
-                icacls "%KEY_FILE%" /grant:r "%USERNAME%:F"
+                icacls "%KEY_FILE%" /grant:r "SYSTEM:F"
                 icacls "%KEY_FILE%" /grant:r "Users:F"
               """
 
