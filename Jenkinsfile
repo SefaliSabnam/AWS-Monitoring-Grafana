@@ -1,4 +1,4 @@
-pipeline {
+pipeline { 
   agent any
 
   environment {
@@ -77,7 +77,13 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // SSH into EC2 and deploy the container
+              // Fix key permissions (equivalent to chmod 400)
+              bat """
+                icacls "%KEY_FILE%" /inheritance:r
+                icacls "%KEY_FILE%" /grant:r "%USERNAME%:R"
+              """
+
+              // SSH into EC2 and deploy Docker container
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
