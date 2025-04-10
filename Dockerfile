@@ -1,7 +1,6 @@
 FROM grafana/grafana-oss:10.2.3
 
-# Install CloudWatch plugin
-ENV GF_INSTALL_PLUGINS=grafana-cloudwatch-datasource
+# Optional: enable metrics
 ENV GF_METRICS_ENABLED=true
 
 # Provisioning files
