@@ -12,9 +12,17 @@ pipeline {
 
   options {
     skipStagesAfterUnstable()
+    // Clean workspace before starting the pipeline
+    skipDefaultCheckout()
   }
 
   stages {
+
+    stage('Clean Workspace') {
+      steps {
+        cleanWs()
+      }
+    }
 
     stage('Checkout') {
       steps {
@@ -76,7 +84,7 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix key permissions (removed incorrect username from icacls)
+              // Fix key permissions
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
                 icacls "%KEY_FILE%" /grant:r "%USERNAME%:(R)"
