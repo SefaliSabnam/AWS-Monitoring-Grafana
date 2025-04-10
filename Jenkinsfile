@@ -90,12 +90,15 @@ pipeline {
                 icacls "%KEY_FILE%" /grant:r "Administrators:F"
               """
 
-              // SSH into EC2 and deploy Docker container
+              // SSH into EC2 and free port 3000 if needed, then deploy Grafana
               bat """
                 set EC2_IP=${ec2_ip}
                 echo Deploying to EC2: %EC2_IP%
                 ssh -o StrictHostKeyChecking=no -i "%KEY_FILE%" %USER%@%EC2_IP% ^
-                  "docker pull ${IMAGE_NAME} && docker stop grafana || true && docker rm grafana || true && docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
+                  "PID=\\\$(sudo lsof -t -i:3000); if [ ! -z \\\\"\\\$PID\\\\" ]; then sudo kill -9 \\\$PID; fi && ^
+                  docker pull ${IMAGE_NAME} && ^
+                  docker stop grafana || true && docker rm grafana || true && ^
+                  docker run -d --name grafana -p 3000:3000 ${IMAGE_NAME}"
               """
             }
           }
@@ -106,7 +109,7 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. Access it via the EC2 public IP on port 3000.'
+      echo 'Grafana deployed successfully. Access it via the EC2 public IP on port 3000.'
     }
     failure {
       echo 'Deployment failed. Check Jenkins logs for details.'
