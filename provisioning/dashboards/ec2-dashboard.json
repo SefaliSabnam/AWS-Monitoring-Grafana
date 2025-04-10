@@ -1,24 +1,29 @@
 {
-    "dashboard": {
-      "id": null,
-      "title": "EC2 Monitoring Dashboard",
-      "panels": [
+  "id": null,
+  "title": "EC2 Monitoring Dashboard",
+  "timezone": "browser",
+  "panels": [
+    {
+      "type": "graph",
+      "title": "CPU Utilization",
+      "datasource": "CloudWatch",
+      "targets": [
         {
-          "type": "graph",
-          "title": "CPU Utilization",
-          "targets": [
-            {
-              "namespace": "AWS/EC2",
-              "metricName": "CPUUtilization",
-              "statistics": ["Average"],
-              "region": "ap-south-1",
-              "dimensions": {
-                "InstanceId": "i-xxxxxxxxxxxxxxxxx"
-              }
-            }
-          ]
+          "namespace": "AWS/EC2",
+          "metricName": "CPUUtilization",
+          "statistics": ["Average"],
+          "region": "ap-south-1",
+          "dimensions": {
+            "InstanceId": "i-xxxxxxxxxxxxxxxxx"
+          },
+          "refId": "A"
         }
-      ]
+      ],
+      "xaxis": { "show": true },
+      "yaxes": [{ "format": "percent", "show": true }, { "show": true }]
     }
-  }
-  
+  ],
+  "schemaVersion": 30,
+  "version": 1,
+  "refresh": "10s"
+}
