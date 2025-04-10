@@ -83,18 +83,17 @@ pipeline {
 
               echo "EC2 Instance Public IP: ${ec2_ip}"
 
-              // Fix key file permission for Windows Jenkins agent
+              // Set file permissions (Windows)
               bat """
                 icacls "%KEY_FILE%" /inheritance:r
                 icacls "%KEY_FILE%" /grant:r "SYSTEM:F"
                 icacls "%KEY_FILE%" /grant:r "Administrators:F"
               """
 
-              // SSH into EC2 and deploy Docker container
+              // Deploy to EC2
               bat """
-                set EC2_IP=${ec2_ip}
-                echo Deploying to EC2: %EC2_IP%
-                ssh -o StrictHostKeyChecking=no -i "%KEY_FILE%" %USER%@%EC2_IP% ^
+                echo Deploying to EC2: ${ec2_ip}
+                ssh -o StrictHostKeyChecking=no -i "%KEY_FILE%" %USER%@${ec2_ip} ^
                   "PID=\\$(sudo lsof -t -i:3000); [ ! -z \\\"\\$PID\\\" ] && sudo kill -9 \\$PID || true; ^
                   docker pull ${IMAGE_NAME}; ^
                   docker stop grafana || true; docker rm grafana || true; ^
@@ -109,10 +108,10 @@ pipeline {
 
   post {
     success {
-      echo ' Grafana deployed successfully. Access it via the EC2 public IP on port 3000.'
+      echo 'Grafana deployed successfully. Access it via the EC2 public IP on port 3000.'
     }
     failure {
-      echo ' Deployment failed. Check Jenkins logs for details.'
+      echo 'Deployment failed. Check Jenkins logs for details.'
     }
   }
 }
