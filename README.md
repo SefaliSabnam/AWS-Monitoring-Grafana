@@ -29,8 +29,8 @@ This project demonstrates the deployment of Grafana on an EC2 instance using a D
 ##  Project Architecture
 
 > _A monitoring solution with CI/CD pipeline automates the deployment of a Docker-based Grafana container on EC2, visualizing CloudWatch metrics._
-![Architecture Diagram](docker%20with%20grafana.drawio.png)
 
+![Architecture Diagram](./grafana-ec2-architecture.png)
 
 ---
 
