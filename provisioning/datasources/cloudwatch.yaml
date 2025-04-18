@@ -6,3 +6,4 @@ datasources:
     isDefault: true
     jsonData:
       defaultRegion: ap-south-1
+
