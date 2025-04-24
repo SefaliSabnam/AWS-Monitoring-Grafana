@@ -3,7 +3,7 @@ pipeline {
 
   environment {
     IMAGE_NAME = "sefali26/grafana-ec2"
-    INSTANCE_NAME = "AWS-MONITORING-GRAFANA"
+    INSTANCE_NAME = "grafana-monitoring-ec2"
     REGION = "ap-south-1"
     DOCKER_HUB_CREDENTIALS = 'DOCKER_HUB_TOKEN'
     EC2_SSH_KEY = 'ec2-ssh-key'
@@ -113,3 +113,4 @@ pipeline {
     }
   }
 }
+
